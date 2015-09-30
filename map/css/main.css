@@ -1,6 +1,26 @@
+.menu {
+  float: left;
+  width: 200px;
+  height: 400px;
+  margin-right: 20px;
+}
+
+.menu > div {
+  padding: 6px 0;
+  text-align: center;
+  cursor: pointer;
+}
+
+.menu > div.active {
+  background-color: rgb(234, 200, 189);
+}
+
+.main {
+  float: left;
+}
 
 #map {
-  width: 1000px;
-  height: 800px;
+  width: 1100px;
+  height: 680px;
   margin: 0 auto;
 }

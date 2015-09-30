@@ -33,7 +33,7 @@ db.run("create table if not exists cells (" +
     });
 
 
-db.run("create table if not exists wifiaps (" +
+db.run("create table if not exists aps (" +
     "ssid TEXT," +
     "bssid TEXT," +
     "rssi INTEGER," +
@@ -47,7 +47,7 @@ db.run("create table if not exists wifiaps (" +
     });
 
 
-db.run("create table if not exists wifiap_observations (" +
+db.run("create table if not exists ap_observations (" +
     "ssid TEXT," +
     "bssid TEXT," +
     "rssi INTEGER," +
@@ -71,6 +71,17 @@ app.get("/", function(req, res) {
 
 app.get("/cellcount", function(req, res) {
   db.all("select count(*) as count from cells;", function(err, rows) {
+    db.all("select count(*) as count from cell_observations", function(err2, rows2) {
+      if (err) return console.error(err);
+      if (err2) return console.error(err2);
+
+      res.send({count: rows[0].count, observations: rows2[0].count});
+    })
+  })
+})
+
+app.get("/apcount", function(req, res) {
+  db.all("select count(*) as count from aps;", function(err, rows) {
     if (err) return console.error(err);
 
     res.send(rows[0]);
