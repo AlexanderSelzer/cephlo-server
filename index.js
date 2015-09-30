@@ -14,7 +14,8 @@ db.run("create table if not exists cell_observations (" +
     "lat REAL," +
     "lon REAL," +
     "alt REAL," +
-    "accuracy REAL);", function(err) {
+    "accuracy REAL," +
+    "time DATE);", function(err) {
       if (err) {
         console.error(err);
       }
@@ -137,8 +138,9 @@ setInterval(function() {
     
     var cells = [];
     
-    rows.forEach(function(row) {
-      
+    rows.filter(function(row) {
+      return row.cid > 0; // -1 cells are pretty common on my phone
+    }).forEach(function(row) {
       db.all("select cid, lat, lon, rssi from cell_observations where cid = ?", [row.cid], function(err, rows) {
         if (err)
           return console.error(err);

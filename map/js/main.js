@@ -1,4 +1,4 @@
-var map = L.map("map").setView([48, 16], 9);
+var map = L.map("map").setView([48.23,16.36], 11);
 
 L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
   attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
@@ -34,6 +34,7 @@ menu.each(function(i) {
 })
 
 displayCells();
+$(".menu-cells").addClass("active");
 
 var markers = new L.FeatureGroup();
 
@@ -49,7 +50,7 @@ function displayCells() {
       var text = "cid: " + cell.cid + "<br />"
       + "time: " + new Date(cell.time).toString();
 
-      L.marker(coords)
+      L.circle(coords, 50)
         .addTo(markers)
         .bindPopup(text);
     })
@@ -65,7 +66,13 @@ function displayCellObservations() {
       var text = "cid: " + cell.cid + "<br />"
       + "time: " + new Date(cell.time).toString();
 
-      L.marker(coords)
+      var rssiColor = "rgb(" + Math.round((cell.rssi + 140) * 3.2) + ", 100, 134)";
+      console.log(rssiColor);
+
+      L.circle(coords, 50, {
+        color: rssiColor,
+        fillColor: rssiColor
+      })
         .addTo(markers)
         .bindPopup(text);
     })
