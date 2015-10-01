@@ -2,6 +2,7 @@ var express = require("express");
 var bodyParser = require("body-parser");
 var sqlite = require("sqlite3");
 var db = new sqlite.Database("./db");
+var fs = require("fs");
 
 var CELL_UPDATE_INTERVAL = 10;
 
@@ -61,6 +62,13 @@ db.run("create table if not exists ap_observations (" +
       }
     });
 
+function log(msg) {
+  console.log("[" + (new Date()) + "] " + msg);
+  fs.appendFile("cephlo.log", "[" + (new Date()) + "] " + msg + "\n", function(err) {
+    if (err) console.log("error writing to logs");
+  });
+}
+
 var app = express();
 app.use(bodyParser.json());
 
@@ -96,7 +104,7 @@ app.post("/observation", function(req, res) {
   if (type === "cell") {
     var data = req.body.data
 
-    db.run("insert into cell_observations values (?, ?, ?, ?, ?, ?, ?, ?, ?);", [
+    db.run("insert into cell_observations values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);", [
         data.type,
         data.cid,
         data.mcc,
@@ -105,7 +113,8 @@ app.post("/observation", function(req, res) {
         data.lat,
         data.lon,
         data.alt,
-        data.accuracy
+        data.accuracy,
+        data.timestamp
       ], function(err) {
         if (err) {
           console.error(err);
@@ -129,6 +138,7 @@ app.get("/cell_observations", function(req, res) {
 })
 
 setInterval(function() {
+  log("calculating cell locations");
   db.all("select distinct cid from cell_observations", function(err, rows) {
     if (err)
       return console.error(err);
@@ -147,6 +157,7 @@ setInterval(function() {
 
         var nearest = rows[0];
 
+        // more than 1 observations of cid
         if (rows.length !== 1) {
           for (var i = 1; i < rows.length; i++) {
             if (rows[i].rssi > nearest.rssi)
@@ -155,11 +166,9 @@ setInterval(function() {
         }
 
         db.run("insert into cells values (?, ?, ?, ?, ?);", [nearest.cid, nearest.rssi, nearest.lat, nearest.lon, Date.now()], function(err) {
-          console.log(nearest);
           if (err) console.error(err);
         })
       })
-
 
       // this might leave data in a bad state for a while, but that is fine at this scale
       db.run("delete from cells where time < ?;", [Date.now() - 2000], function(err) {
