@@ -152,10 +152,49 @@ app.post("/observation", function(req, res) {
 
 app.get("/cell_observations", function(req, res) {
   db.all("select * from cell_observations where cid != 2147483647 and cid > 0", function(err, rows) {
-    if (!err)
+    if (!err) {
       res.send(rows);
-    else
+    }
+    else {
       console.error(err);
+      res.status(200);
+    }
+  })
+})
+
+app.get("/ap_observations", function(req, res) {
+  db.all("select * from ap_observations;", function(err, rows) {
+    if (!err) {
+      res.send(rows);
+    }
+    else {
+      console.error(err);
+      res.status(200);
+    }
+  })
+})
+
+app.get("/cells", function(req, res) {
+  db.all("select * from cells", function(err, rows) {
+    if (!err) {
+      res.send(rows);
+    }
+    else {
+      console.error(err);
+      res.status(200);
+    }
+  })
+})
+
+app.get("/aps", function(req, res) {
+  db.all("select * from aps", function(err, rows) {
+    if (!err){
+      res.send(rows);
+    }
+    else {
+      console.error(err);
+      res.status(200);
+    }
   })
 })
 
@@ -200,14 +239,5 @@ setInterval(function() {
     })
   })
 }, CELL_UPDATE_INTERVAL * 1000)
-
-app.get("/cells", function(req, res) {
-  db.all("select * from cells", function(err, rows) {
-    if (!err)
-      res.send(rows);
-    else
-      console.error(err);
-  })
-})
 
 app.listen(7898);
