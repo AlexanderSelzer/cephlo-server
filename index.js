@@ -16,7 +16,8 @@ db.run("create table if not exists cell_observations (" +
     "lon REAL," +
     "alt REAL," +
     "accuracy REAL," +
-    "time DATE);", function(err) {
+    "time DATE," +
+    "mnc INTEGER);", function(err) {
       if (err) {
         console.error(err);
       }
@@ -42,7 +43,8 @@ db.run("create table if not exists aps (" +
     "frequency INTEGER," +
     "lat REAL," +
     "lon REAL," +
-    "time DATE);", function(err) {
+    "time DATE," +
+    "alt REAL);", function(err) {
       if (err) {
         console.error(err);
       }
@@ -56,7 +58,9 @@ db.run("create table if not exists ap_observations (" +
     "lat REAL," +
     "lon REAL," +
     "accuracy REAL," +
-    "time DATE);", function(err) {
+    "time DATE," +
+    "alt REAL," +
+    "frequency INTEGER);", function(err) {
       if (err) {
         console.error(err);
       }
@@ -102,9 +106,9 @@ app.post("/observation", function(req, res) {
   var type = req.body.type;
 
   if (type === "cell") {
-    var data = req.body.data
+    var data = req.body.data;
 
-    db.run("insert into cell_observations values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);", [
+    db.run("insert into cell_observations values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);", [
         data.type,
         data.cid,
         data.mcc,
@@ -114,7 +118,8 @@ app.post("/observation", function(req, res) {
         data.lon,
         data.alt,
         data.accuracy,
-        data.timestamp
+        data.timestamp,
+        data.mnc
       ], function(err) {
         if (err) {
           console.error(err);
@@ -122,14 +127,31 @@ app.post("/observation", function(req, res) {
       });
   }
   else if (type === "wifi") {
-    
+    var data = req.body.data;
+
+    db.run("insert into ap_observations values(?, ?, ?, ?, ?, ?, ?, ?, ?);", [
+      data.ssid,
+      data.bssid,
+      data.rssi,
+      data.lat,
+      data.lon,
+      data.accuracy,
+      data.timestamp,
+      data.alt,
+      data.frequency
+        ], function(err) {
+          if (err) {
+            console.error(err);
+          }
+        });
+
   }
 
   res.send(200);
 })
 
 app.get("/cell_observations", function(req, res) {
-  db.all("select * from cell_observations", function(err, rows) {
+  db.all("select * from cell_observations where cid != 2147483647 and cid > 0", function(err, rows) {
     if (!err)
       res.send(rows);
     else
@@ -149,7 +171,8 @@ setInterval(function() {
     var cells = [];
     
     rows.filter(function(row) {
-      return row.cid > 0; // -1 cells are pretty common on my phone
+      return row.cid > 0 // -1 cells are pretty common on my phone
+      && row.cid !== 2147483647;
     }).forEach(function(row) {
       db.all("select cid, lat, lon, rssi from cell_observations where cid = ?", [row.cid], function(err, rows) {
         if (err)
