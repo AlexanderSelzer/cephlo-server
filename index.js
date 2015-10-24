@@ -3,8 +3,9 @@ var bodyParser = require("body-parser");
 var sqlite = require("sqlite3");
 var db = new sqlite.Database("./db");
 var fs = require("fs");
+var exec = require("child_process").exec
 
-var CELL_UPDATE_INTERVAL = 10;
+var CELL_UPDATE_INTERVAL = 20; // seconds
 
 db.run("create table if not exists cell_observations (" +
     "type TEXT," +
@@ -175,15 +176,37 @@ app.get("/ap_observations", function(req, res) {
 })
 
 app.get("/cells", function(req, res) {
-  db.all("select * from cells", function(err, rows) {
-    if (!err) {
-      res.send(rows);
-    }
-    else {
-      console.error(err);
-      res.status(200);
-    }
-  })
+  if (req.query.x && req.query.y && req.query.area) {
+    var x = parseFloat(req.query.x);
+    var y = parseFloat(req.query.y);
+    var area = Math.round(parseFloat(req.query.area) / 100);
+
+    var a = Math.round(area / 2);
+
+    console.log(req.query.area, a, x + a, x - a, y + a, y - a)
+
+    db.all("select * from cells where lat > " + (x - a) + " and lat < " + (x + a) +
+      " and lon > " + (y - a) + " and lon < " + (y + a), function(err, rows) {
+      if (!err) {
+        res.send(rows);
+      }
+      else {
+        console.error(err);
+        res.status(200);
+      }
+    })
+  }
+  else {
+    db.all("select * from cells", function(err, rows) {
+      if (!err) {
+        res.send(rows);
+      }
+      else {
+        console.error(err);
+        res.status(200);
+      }
+    })
+  }
 })
 
 app.get("/aps", function(req, res) {
@@ -198,46 +221,68 @@ app.get("/aps", function(req, res) {
   })
 })
 
+var updateDate = (new Date(2000, 12, 12)).getTime(); // this will calculate all cells at the beginning
+
+// can't do this in a different process because the DB locks
 setInterval(function() {
   log("calculating cell locations");
-  db.all("select distinct cid from cell_observations", function(err, rows) {
+
+  // only get the unique cids from cells where new observations available
+  db.all("select distinct cid from (select * from cell_observations where time > " + updateDate + ");", function(err, rows) {
     if (err)
       return console.error(err);
-
-    // this is not a really efficient way of approaching this problem.
-    // could be optimised in a lot of ways
     
     var cells = [];
+    var date = Date.now();
     
     rows.filter(function(row) {
-      return row.cid > 0 // -1 cells are pretty common on my phone
-      && row.cid !== 2147483647;
+      return row.cid > 0 // -1 cells are pretty common on my phone and probably others
+      && row.cid !== 2147483647; // this seems to be a weird Android or Motorola modem bug - those cells are useless
     }).forEach(function(row) {
       db.all("select cid, lat, lon, rssi from cell_observations where cid = ?", [row.cid], function(err, rows) {
         if (err)
           return console.error(err);
 
         var nearest = rows[0];
+        
+        var sorted = rows.sort(function(a, b) {
+          return a.rssi - b.rssi;
+        });
 
-        // more than 1 observations of cid
-        if (rows.length !== 1) {
-          for (var i = 1; i < rows.length; i++) {
-            if (rows[i].rssi > nearest.rssi)
-              nearest = rows[i];
-          }
+        // choose the top 5% and a minimum of one cell
+        var size = Math.ceil(0.05 * sorted.length);
+
+        var latSum = 0, lonSum = 0;
+
+        for (var i = 0; i < size; i++) {
+            latSum += sorted[i].lat;
+            lonSum += sorted[i].lon;
         }
 
-        db.run("insert into cells values (?, ?, ?, ?, ?);", [nearest.cid, nearest.rssi, nearest.lat, nearest.lon, Date.now()], function(err) {
-          if (err) console.error(err);
+        var latMean = latSum / size;
+        var lonMean = lonSum / size;
+
+        var cell = {
+          lat: latMean,
+          lon: lonMean,
+          cid: row.cid
+        };
+
+        // should probably use a transaction
+        db.run("delete from cells where cid = " + cell.cid, function(err) {
+          if (err) return console.error(err);
+
+          // RSSI is not really useful, so it's just always 100
+          db.run("insert into cells values (?, ?, ?, ?, ?);", [cell.cid, -100, cell.lat, cell.lon, date], function(err) {
+            if (err) console.error(err);
+          })
         })
       })
-
-      // this might leave data in a bad state for a while, but that is fine at this scale
-      db.run("delete from cells where time < ?;", [Date.now() - 2000], function(err) {
-        if (err) console.error(err);
-      })
     })
+
+    updateDate = Date.now();
   })
+
 }, CELL_UPDATE_INTERVAL * 1000)
 
 app.listen(7898);

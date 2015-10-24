@@ -7,8 +7,7 @@ L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
 var menu = $(".menu > div");
 
 menu.each(function(i) {
-  console.log(this.className);
-  
+
   if (this.className === "menu-cells") {
       $(this).on("click", function() {
         clearMap();
@@ -26,14 +25,23 @@ menu.each(function(i) {
       });
   }
   else if (this.className === "menu-aps") {
-      $(this).on("click", displayCells);
+      $(this).on("click", function() {
+        clearMap();
+        menu.removeClass("active");
+        $(this).addClass("active");
+      });
   }
   else if (this.className === "menu-ap-observations") {
-      $(this).on("click", displayCells);
+      $(this).on("click", function() {
+        clearMap();
+        menu.removeClass("active");
+        $(this).addClass("active");
+        displayApObservations()
+      });
   }
 })
 
-displayCells();
+//displayCells();
 $(".menu-cells").addClass("active");
 
 var markers = new L.FeatureGroup();
@@ -68,6 +76,28 @@ function displayCellObservations() {
 
       var rssiColor = "rgb(" + Math.round((cell.rssi + 140) * 3.2) + ", 100, 134)";
       console.log(rssiColor);
+
+      L.circle(coords, 50, {
+        color: rssiColor,
+        fillColor: rssiColor
+      })
+        .addTo(markers)
+        .bindPopup(text);
+    })
+    map.addLayer(markers);
+  })
+}
+
+function displayApObservations() {
+  $.get("/ap_observations", function(aps) {
+    aps.forEach(function(ap) {
+      var coords = [ap.lat, ap.lon];
+
+      var text = "ssid: " + ap.ssid + "<br />"
+      + "bssid: " + ap.bssid + "<br />"
+      + "time: " + new Date(ap.time).toString();
+
+      var rssiColor = "rgb(" + Math.round((ap.rssi + 140) * 3.2) + ", 100, 134)";
 
       L.circle(coords, 50, {
         color: rssiColor,
