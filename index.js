@@ -252,19 +252,23 @@ setInterval(function() {
         // choose the top 5% and a minimum of one cell
         var size = Math.ceil(0.05 * sorted.length);
 
+        var rssiSum = 0;
+
+        for (var i = 0; i < size; i++) {
+          rssiSum += 140 + sorted[i].rssi; // there shouldn't be any values below -140dB...
+        }
+
         var latSum = 0, lonSum = 0;
 
         for (var i = 0; i < size; i++) {
-            latSum += sorted[i].lat;
-            lonSum += sorted[i].lon;
+            var r = ((140 + sorted[i].rssi) / rssiSum);
+            latSum += sorted[i].lat * r;
+            lonSum += sorted[i].lon * r;
         }
 
-        var latMean = latSum / size;
-        var lonMean = lonSum / size;
-
         var cell = {
-          lat: latMean,
-          lon: lonMean,
+          lat: latSum,
+          lon: lonSum,
           cid: row.cid
         };
 
